@@ -1,0 +1,114 @@
+﻿@model IEnumerable<CahootStackOverflow.Models.SearchResult>
+
+@{
+    ViewData["Title"] = "StackOverflow Search";
+}
+
+<div class="text-center mt-4">
+    <h2>StackOverflow Search</h2>
+
+    <form method="get" action="/" class="mt-3 mb-5">
+        <div class="input-group justify-content-center">
+            <input type="text" name="searchTerm" class="form-control" style="max-width: 500px;"
+                   placeholder="Search questions and answers..." value="@ViewBag.SearchTerm" />
+            <button type="submit" class="btn btn-primary">Search</button>
+        </div>
+    </form>
+</div>
+
+<div id="resultsContainer" class="container" style="max-width: 800px;">
+    @if (Model != null && Model.Any())
+    {
+        foreach (var post in Model)
+        {
+            <div class="card mb-3 result-card shadow-sm">
+                <div class="card-body">
+                    <h5 class="card-title text-primary">@post.Title</h5>
+                    <p class="card-text text-muted">@post.Description...</p>
+
+                    <div class="d-flex justify-content-between align-items-center mt-3">
+                        <div>
+                            <span class="badge bg-success me-2">Votes: @post.TotalVotes</span>
+                            <span class="badge bg-info text-dark">Answers: @post.TotalAnswers</span>
+                        </div>
+                        <div class="text-end" style="font-size: 0.9em;">
+                            <strong>@post.UserName</strong><br />
+                            Rep: @post.UserReputation | Badges: @post.BadgeCount
+                        </div>
+                    </div>
+                </div>
+            </div>
+        }
+    }
+    else if (!string.IsNullOrEmpty(ViewBag.SearchTerm))
+    {
+        <div class="alert alert-warning text-center">No results found for "@ViewBag.SearchTerm"</div>
+    }
+</div>
+
+@if (Model != null && Model.Count() == 10)
+{
+    <div class="text-center mb-5">
+        <button id="loadMoreBtn" class="btn btn-outline-primary">Load More Results</button>
+    </div>
+}
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+
+        // --- 1. PUSH NOTIFICATION LOGIC ---
+        // Ask the browser for permission. If granted, show a local notification once per session.
+        if ("Notification" in window) {
+            Notification.requestPermission().then(function (permission) {
+                if (permission === "granted" && !sessionStorage.getItem('notified')) {
+                    new Notification("StackOverflow Search", {
+                        body: "Welcome! Start searching for SQL Server or C# topics.",
+                        icon: "https://cdn-icons-png.flaticon.com/512/29/29264.png"
+                    });
+                    sessionStorage.setItem('notified', 'true');
+                }
+            });
+        }
+
+        // --- 2. PROGRESSIVE LOADING LOGIC ---
+        let currentPage = @(ViewBag.Page ?? 1);
+        const searchTerm = '@ViewBag.SearchTerm';
+        const loadMoreBtn = document.getElementById('loadMoreBtn');
+
+        if (loadMoreBtn) {
+            loadMoreBtn.addEventListener('click', async function() {
+                // Change button text to show it's working
+                const originalText = this.innerText;
+                this.innerText = "Loading...";
+                this.disabled = true;
+
+                currentPage++;
+
+                try {
+                    // Fetch the next page of results in the background
+                    const response = await fetch(`/?searchTerm=${encodeURIComponent(searchTerm)}&page=${currentPage}`);
+                    const htmlText = await response.text();
+
+                    // Parse the returned HTML to find the new result cards
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(htmlText, 'text/html');
+                    const newCards = doc.querySelectorAll('.result-card');
+
+                    // Append the new cards to our container
+                    const container = document.getElementById('resultsContainer');
+                    newCards.forEach(card => container.appendChild(card));
+
+                    // If we got back fewer than 10 results, we've hit the end of the database
+                    if (newCards.length < 10) {
+                        this.style.display = 'none';
+                    }
+                } catch (error) {
+                    console.error("Failed to load more results", error);
+                } finally {
+                    this.innerText = originalText;
+                    this.disabled = false;
+                }
+            });
+        }
+    });
+</script>
