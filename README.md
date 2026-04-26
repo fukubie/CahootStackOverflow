@@ -1,4 +1,5 @@
 # 🚀 Cahoot StackOverflow Assessment
+![Application Demo](CahootStackOverflow.gif)
 
 ## 🛠️ How to Run the Project
 
